@@ -91,32 +91,50 @@ enum SelectServer {
 struct Server {
     url: String,
     #[structopt(subcommand)]
-    transaction_subcommand: TransactionSubcommand
+    transaction_subcommand: ActionSubcommand
 }
 
 impl Default for SelectServer {
     fn default() -> Self {
         SelectServer::Testnet(Server{
             url: TESTNET_API_SERVER_URL.to_string(),
-            transaction_subcommand: TransactionSubcommand::default()
+            transaction_subcommand: ActionSubcommand::default()
         })
     }
 }
 
 #[derive(Debug, EnumVariantNames, StructOpt)]
-enum TransactionSubcommand {
+enum ActionSubcommand {
     TransferNEARTokens(TransferNEARTokens),
     CallFunction,
     StakeNEARTokens,
     CreateAccount,
     DeleteAccount,
     AddAccessKey,
-    DeteteAccessKey
+    DeteteAccessKey,
+    Skip
 }
 
-impl Default for TransactionSubcommand {
+impl Default for ActionSubcommand {
     fn default() -> Self {
-        TransactionSubcommand::CallFunction
+        ActionSubcommand::Skip
+    }
+}
+
+impl ActionSubcommand {
+    fn choose_action_command() -> Self {
+        let action_subcommands= ActionSubcommand::VARIANTS;
+        let select_action_subcommand = Select::with_theme(&ColorfulTheme::default())
+            .with_prompt("Select an action that you want to add to the action:")
+            .items(&action_subcommands)
+            .default(0)
+            .interact_on_opt(&Term::stderr())
+            .unwrap();
+        match select_action_subcommand {
+            Some(0) => ActionSubcommand::TransferNEARTokens(TransferNEARTokens::input_amount()),
+            Some(1) => ActionSubcommand::CallFunction,
+            _ => ActionSubcommand::default()
+        }
     }
 }
 
@@ -144,7 +162,9 @@ impl FromStr for NearBalance {
 #[derive(Debug, StructOpt)]
 struct TransferNEARTokens {
     #[structopt(long)]
-    amount: NearBalance
+    amount: NearBalance,
+    #[structopt(subcommand)]
+    next_action: Box<ActionSubcommand>
 }
 
 impl TransferNEARTokens {
@@ -154,7 +174,8 @@ impl TransferNEARTokens {
             .interact_text()
             .unwrap();
         let amount = NearBalance::from_str(&input).unwrap();
-        Self {amount}
+
+        Self {amount, next_action: Box::from(ActionSubcommand::choose_action_command())}
     }
 }
 
@@ -212,21 +233,7 @@ impl ChooseCommand for OnOffLineMode {
             .unwrap();
         let custom_api_server_url: String = "".to_string();
 
-        let transaction_subcommands= TransactionSubcommand::VARIANTS;
-        let select_transaction_subcommand = Select::with_theme(&ColorfulTheme::default())
-            .with_prompt("Select an action that you want to add to the transaction:")
-            .items(&transaction_subcommands)
-            .default(0)
-            .interact_on_opt(&Term::stderr())
-            .unwrap();
-        let transaction_subcommand = match select_transaction_subcommand {
-            // Some(num) => TransactionSubcommand::from_str(transaction_subcommands[num]).unwrap_or_else(|| {
-            //     TransferNEARTokens::input_amount()
-            // }),
-            Some(0) => TransactionSubcommand::TransferNEARTokens(TransferNEARTokens::input_amount()),
-            Some(1) => TransactionSubcommand::CallFunction,
-            _ => TransactionSubcommand::default()
-        };
+        let transaction_subcommand= ActionSubcommand::choose_action_command();
         let selected_server: SelectServer = match select_server {
             // Some(num) => SelectServer::from_str(servers[num]).unwrap() ,
             Some(0) => SelectServer::Testnet(Server{
