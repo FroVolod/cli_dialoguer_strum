@@ -1,19 +1,4 @@
 use structopt::StructOpt;
-use dialoguer::{
-    Select,
-    Input,
-    theme::ColorfulTheme,
-    console::Term
-};
-use std::num::ParseIntError;
-use std::str::FromStr;
-
-use strum_macros::{
-    Display,
-    EnumString,
-    EnumVariantNames,
-};
-use strum::VariantNames;
 
 mod consts;
 mod cli_command;
