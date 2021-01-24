@@ -5,7 +5,7 @@ use dialoguer::{
     theme::ColorfulTheme,
     console::Term
 };
-use std::io::Result;
+use std::num::ParseIntError;
 use std::str::FromStr;
 
 use strum_macros::{
@@ -23,11 +23,9 @@ use consts::{
 };
 
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug)]
 struct Args {
-    #[structopt(long)]
     name: String,
-    #[structopt(subcommand)]
     subcommand: CliCommand,
 }
 
@@ -105,9 +103,9 @@ impl Default for SelectServer {
     }
 }
 
-#[derive(Debug, EnumString,  EnumVariantNames, StructOpt)]
+#[derive(Debug, EnumVariantNames, StructOpt)]
 enum TransactionSubcommand {
-    TransferNEARTokens,
+    TransferNEARTokens(TransferNEARTokens),
     CallFunction,
     StakeNEARTokens,
     CreateAccount,
@@ -118,7 +116,45 @@ enum TransactionSubcommand {
 
 impl Default for TransactionSubcommand {
     fn default() -> Self {
-        TransactionSubcommand::TransferNEARTokens
+        TransactionSubcommand::CallFunction
+    }
+}
+
+#[derive(Debug)]
+struct NearBalance (u128);
+
+impl FromStr for NearBalance {
+    type Err = ParseIntError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let res: u128 = s.parse().unwrap_or_else(|ParseIntError| {
+            match s.contains("NEAR") {
+                true => {
+                    let ss:u128 = s.trim_matches(char::is_alphabetic)
+                        .parse()
+                        .unwrap();
+                    ss * 10u128.pow(24)
+                },
+                _ => 0
+            }
+        });
+        Ok(NearBalance(res))
+    }
+}
+
+#[derive(Debug, StructOpt)]
+struct TransferNEARTokens {
+    #[structopt(long)]
+    amount: NearBalance
+}
+
+impl TransferNEARTokens {
+    fn input_amount() -> Self {
+        let input : String = Input::new()
+            .with_prompt("How many NEAR Tokens do you want to transfer?")
+            .interact_text()
+            .unwrap();
+        let amount = NearBalance::from_str(&input).unwrap();
+        Self {amount}
     }
 }
 
@@ -184,7 +220,11 @@ impl ChooseCommand for OnOffLineMode {
             .interact_on_opt(&Term::stderr())
             .unwrap();
         let transaction_subcommand = match select_transaction_subcommand {
-            Some(num) => TransactionSubcommand::from_str(transaction_subcommands[num]).unwrap(),
+            // Some(num) => TransactionSubcommand::from_str(transaction_subcommands[num]).unwrap_or_else(|| {
+            //     TransferNEARTokens::input_amount()
+            // }),
+            Some(0) => TransactionSubcommand::TransferNEARTokens(TransferNEARTokens::input_amount()),
+            Some(1) => TransactionSubcommand::CallFunction,
             _ => TransactionSubcommand::default()
         };
         let selected_server: SelectServer = match select_server {
