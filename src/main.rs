@@ -126,18 +126,18 @@ struct NearBalance (u128);
 impl FromStr for NearBalance {
     type Err = ParseIntError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let res: u128 = s.parse().unwrap_or_else(|ParseIntError| {
+        let number: u128 = s.parse().unwrap_or_else(|ParseIntError| {
             match s.contains("NEAR") {
                 true => {
-                    let ss:u128 = s.trim_matches(char::is_alphabetic)
+                    let num:u128 = s.trim_matches(char::is_alphabetic)
                         .parse()
                         .unwrap();
-                    ss * 10u128.pow(24)
+                    num * 10u128.pow(24)
                 },
                 _ => 0
             }
         });
-        Ok(NearBalance(res))
+        Ok(NearBalance(number))
     }
 }
 
@@ -150,7 +150,7 @@ struct TransferNEARTokens {
 impl TransferNEARTokens {
     fn input_amount() -> Self {
         let input : String = Input::new()
-            .with_prompt("How many NEAR Tokens do you want to transfer?")
+            .with_prompt("How many NEAR Tokens do you want to transfer? (example: 10NEAR)")
             .interact_text()
             .unwrap();
         let amount = NearBalance::from_str(&input).unwrap();
@@ -306,7 +306,4 @@ fn main() {
 
     let args = Args::from(cli);
     println!("args {:#?}", args);
-
-    let ip_addr = consts::TESTNET_API_SERVER_URL;
-    println!("ip addr: {}", ip_addr)
 }
